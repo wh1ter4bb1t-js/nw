@@ -1,0 +1,66 @@
+#!/bin/bash
+
+parentDir=$(cd ../ && pwd)
+
+configDir=$HOME/.config/nw
+configFile=$configDir/config
+
+help_text () {
+  while IFS= read line; do
+    printf "%s\n" "$line"
+  done <<EOF
+  USAGE: nw [OPTIONS...]
+  -h        show this help text
+  -f        manually choose environment directory
+
+  Config file should placed at $HOME/.config/nw/config
+
+  Config file variables:
+  folders   the environment directory nw should point to
+
+EOF
+}
+
+[ -e "$configFile" ] && . "$configFile"
+
+while getopts "hf:" name;
+do
+  case "$name" in
+    h) help_text
+       exit;;
+    f) folders=${OPTARG};;
+    ?) ;;
+  esac
+done
+shift "$((OPTIND-1))"
+
+for file in "${folders}/*"
+do
+  baseName=$(basename $file)
+  arr=(${baseName})
+
+  for f in $baseName
+  do
+    if [[ "${parentDir}" == *"${f}"* ]]; then
+      selected=$(find "$folders" -mindepth 1 -maxdepth 1 -type d | fzf)
+
+      if [[ -z $selected ]]; then
+        exit 0
+      fi
+
+      base=$(basename $selected)
+
+      if [[ "$parentDir" == *"$base"* ]]; then
+        if [[ -d "$selected/node_modules" ]]; then
+          cp -Rc $selected/* .
+        else
+          npm i && cp -R ./node_modules $selected
+        fi
+
+        cp -Rc $selected/.env* .
+      else
+        exit 0
+      fi
+    fi
+  done
+done
